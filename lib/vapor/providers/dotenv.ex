@@ -46,20 +46,21 @@ defmodule Vapor.Provider.Dotenv do
   * `.env.local`
   * `.env.ENV.local`
 
+  If the .env files are not located in the same folder as the project, it's
+  possible to provide a "root" variable to define where files are located.
+
+      %Dotenv{root: "path/to/files"}
+
   You should commit `.env` and `.env.ENV` files to your project and ignore any
   `.local` files. This allows users to provide a custom setup if they need to
   do that.
   """
-  defstruct filename: nil, overwrite: false
+  defstruct filename: nil, overwrite: false, root: ""
 
   defimpl Vapor.Provider do
-    def load(%{filename: nil, overwrite: overwrite}) do
-      # Get the environment from mix. If mix isn't available we assume we're in
-      # a prod release
-      env = if Code.ensure_loaded?(Mix), do: Mix.env(), else: "prod"
-      files = [".env", ".env.#{env}", ".env.local", ".env.#{env}.local"]
-
-      files
+    def load(%{filename: nil, overwrite: overwrite, root: root}) do
+      root
+      |> build_file_list()
       |> Enum.reduce(%{}, fn file, acc -> Map.merge(acc, load_file(file)) end)
       |> put_vars(overwrite)
 
@@ -74,14 +75,18 @@ defmodule Vapor.Provider.Dotenv do
       {:ok, %{}}
     end
 
-    defp load_file(file) do
-      case File.read(file) do
-        {:ok, contents} ->
-          parse(contents)
+    defp build_file_list("") do
+      # Get the environment from mix. If mix isn't available we assume we're in
+      # a prod release
+      env = if Code.ensure_loaded?(Mix), do: Mix.env(), else: "prod"
+      [".env", ".env.#{env}", ".env.local", ".env.#{env}.local"]
+    end
 
-        _ ->
-          %{}
-      end
+    defp build_file_list(root) do
+      # Get the environment from mix. If mix isn't available we assume we're in
+      # a prod release
+      env = if Code.ensure_loaded?(Mix), do: Mix.env(), else: "prod"
+      ["#{root}/.env", "#{root}/.env.#{env}", "#{root}/.env.local", "#{root}/.env.#{env}.local"]
     end
 
     def put_vars(vars, overwrite) do
@@ -89,6 +94,16 @@ defmodule Vapor.Provider.Dotenv do
         if overwrite || System.get_env(k) == nil do
           System.put_env(k, v)
         end
+      end
+    end
+
+    defp load_file(file) do
+      case File.read(file) do
+        {:ok, contents} ->
+          parse(contents)
+
+        _ ->
+          %{}
       end
     end
 

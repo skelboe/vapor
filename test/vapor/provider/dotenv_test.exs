@@ -12,15 +12,16 @@ defmodule Vapor.Provider.DotenvTest do
     File.rm(".env.test")
     File.rm(".env.dev")
 
-    on_exit fn ->
+    on_exit(fn ->
       File.rm(".env")
       File.rm(".env.test")
       File.rm(".env.dev")
+      File.rm("var/.env")
 
       System.delete_env("FOO")
       System.delete_env("BAR")
       System.delete_env("BAZ")
-    end
+    end)
 
     :ok
   end
@@ -31,6 +32,7 @@ defmodule Vapor.Provider.DotenvTest do
     BAR = bar
       BAZ     =this is a baz
     """
+
     File.write(".env", contents)
 
     plan = %Dotenv{}
@@ -52,6 +54,7 @@ defmodule Vapor.Provider.DotenvTest do
     BAR
     =this is a baz
     """
+
     File.write(".env", contents)
 
     plan = %Dotenv{}
@@ -68,6 +71,7 @@ defmodule Vapor.Provider.DotenvTest do
     # BAR=bar
       # BAZ=comment with indentation
     """
+
     File.write(".env", contents)
 
     plan = %Dotenv{}
@@ -83,6 +87,7 @@ defmodule Vapor.Provider.DotenvTest do
     FOO=foo
     BAR=bar
     """
+
     File.write(".env", contents)
     System.put_env("FOO", "existing foo")
 
@@ -98,6 +103,7 @@ defmodule Vapor.Provider.DotenvTest do
     FOO=foo
     BAR=bar
     """
+
     File.write(".env", contents)
     System.put_env("FOO", "existing")
 
@@ -113,12 +119,14 @@ defmodule Vapor.Provider.DotenvTest do
     FOO=foo
     BAR=bar
     """
+
     File.write!(".env", base_contents)
 
     test_contents = """
     BAR=test bar
     BAZ=test baz
     """
+
     File.write!(".env.test", test_contents)
 
     System.put_env("FOO", "existing")
@@ -135,6 +143,7 @@ defmodule Vapor.Provider.DotenvTest do
     BAR = bar
       BAZ     =this is a baz
     """
+
     File.write(".env.dev", contents)
 
     plan = %Dotenv{filename: ".env.dev"}
@@ -159,13 +168,31 @@ defmodule Vapor.Provider.DotenvTest do
         # with something that could be a comment
     EOF
     """
+
     File.write(".env", contents)
 
     plan = %Dotenv{}
     Vapor.Provider.load(plan)
     assert System.get_env("FOO") == "  I am a quoted\n  multiline variable\n  inside a heredoc"
     assert System.get_env("BAR") == "bar"
-    assert System.get_env("BAZ") == "  I am an unquoted\n  multiline variable\n  inside a heredoc\n    # with something that could be a comment"
+
+    assert System.get_env("BAZ") ==
+             "  I am an unquoted\n  multiline variable\n  inside a heredoc\n    # with something that could be a comment"
+  end
+
+  test "read files from root" do
+    contents = """
+    FOO=foo
+    BAR = bar
+      BAZ     =this is a baz
+    """
+
+    File.write("var/.env", contents)
+
+    plan = %Dotenv{root: "var"}
+    Vapor.Provider.load(plan)
+    assert System.get_env("FOO") == "foo"
+    assert System.get_env("BAR") == "bar"
+    assert System.get_env("BAZ") == "this is a baz"
   end
 end
-
