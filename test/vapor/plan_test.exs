@@ -49,19 +49,32 @@ defmodule Vapor.PlanTest do
 
     dotenv()
 
-    config :env, env([
-      {:foo, "FOO"},
-      {:bar, "BAR"},
-      {:bool, "BOOL", map: &str_to_bool/1},
-    ])
+    config :env,
+           env([
+             {:foo, "FOO"},
+             {:bar, "BAR"},
+             {:bool, "BOOL", map: &str_to_bool/1}
+           ])
 
-    config :file, file("test/support/settings.json", [
-      foo: "foo",
-      baz: "baz",
-      boz: ["biz", "boz"],
-    ])
+    config :file,
+           file("test/support/settings.json",
+             foo: "foo",
+             baz: "baz",
+             boz: ["biz", "boz"]
+           )
 
     config :plan, Plan
+  end
+
+  defmodule RelativeEnvPlan do
+    use Vapor.Planner
+    dotenv(root: "var")
+
+    config :env,
+           env([
+             {:foo, "FOO"},
+             {:bar, "BAR"}
+           ])
   end
 
   test "plan modules can be loaded" do
@@ -87,7 +100,7 @@ defmodule Vapor.PlanTest do
       Plan,
       %Env{
         bindings: [bar: "BAR"]
-      },
+      }
     ]
 
     config = Vapor.load!(providers)
@@ -109,6 +122,7 @@ defmodule Vapor.PlanTest do
       name: :g,
       providers: [Plan]
     }
+
     config = Vapor.load!(provider)
     assert config.g.foo == "FOO VALUE"
     assert config.g.bar == "BAR VALUE"
@@ -131,5 +145,19 @@ defmodule Vapor.PlanTest do
     assert config.file[:foo] == "file foo"
     assert config.file[:baz] == "file baz"
     assert config.file[:boz] == "file biz boz"
+  end
+
+  test "plans can us relative root for env" do
+    contents = """
+    FOO=foo
+    BAR = bar
+    """
+
+    File.write!("var/.env", contents)
+
+    config = Vapor.load!(RelativeEnvPlan)
+    assert System.get_env("FOO") == "foo"
+    assert config.env.foo == "foo"
+    assert config.env.bar == "bar"
   end
 end

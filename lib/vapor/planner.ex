@@ -38,9 +38,10 @@ defmodule Vapor.Planner do
 
   defmacro __before_compile__(%{module: mod}) do
     plan = Module.get_attribute(mod, :config_plan)
+
     plan =
       plan
-      |> Enum.reverse
+      |> Enum.reverse()
       |> Enum.map(fn p -> Macro.escape(p) end)
 
     quote do
@@ -54,12 +55,12 @@ defmodule Vapor.Planner do
     end
   end
 
-  defmacro dotenv do
+  defmacro dotenv(opts \\ []) do
     quote do
       @config_plan :dotenv
 
       defp __vapor_config__(:dotenv) do
-        %Dotenv{}
+        struct(Dotenv, unquote(opts))
       end
     end
   end
